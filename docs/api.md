@@ -33,14 +33,14 @@ The Gitingest API allows programmatic access to the repository ingestion functio
 ## API Endpoints
 
 ```mermaid
-graph TD
-    A[Client] --> B[GET /{repository_path}]
-    A --> C[POST /{repository_path}]
-    A --> D[GET /download/{digest_id}]
-    A --> E[GET /health]
-    B --> F[Repository Processing]
+flowchart TD
+    A(Client) --> B(GET /{repository_path})
+    A --> C(POST /{repository_path})
+    A --> D(GET /download/{digest_id})
+    A --> E(GET /health)
+    B --> F(Repository Processing)
     C --> F
-    F --> G[Response Generation]
+    F --> G(Response Generation)
 ```
 
 ### Primary Endpoints
@@ -67,7 +67,7 @@ graph TD
 |-----------|------|---------|-------------|
 | `max_size` | Integer | 243 | Maximum file size to include (slider position 0-500) |
 | `pattern_type` | String | "exclude" | Type of pattern to use ("include" or "exclude") |
-| `pattern` | String | "" | Pattern string to include or exclude files |
+| `pattern` | String | "" | Pattern string to include or exclude files (comma or space separated) |
 
 ### Form Parameters (POST /{repository_path})
 
@@ -218,8 +218,8 @@ The Gitingest API is under active development. Planned enhancements include:
 
 The API is currently in beta. The current implementation includes:
 - Basic repository processing
-- Pattern filtering
-- File size limitations
+- Pattern filtering via query parameters
+- File size limitations via query parameters
 - Rate limiting
 - Browser/non-browser response differentiation
 

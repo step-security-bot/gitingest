@@ -18,6 +18,11 @@ async def catch_all(request: Request, full_path: str) -> Union[HTMLResponse, Res
 
     This endpoint catches all GET requests with a dynamic path, constructs a Git URL
     using the `full_path` parameter, and renders the `git.jinja` template with that URL.
+    
+    For non-browser requests, it also accepts query parameters:
+    - max_size: Maximum file size (slider position 0-500)
+    - pattern_type: Type of pattern ("include" or "exclude")
+    - pattern: Pattern string to include or exclude
 
     Parameters
     ----------
@@ -28,21 +33,26 @@ async def catch_all(request: Request, full_path: str) -> Union[HTMLResponse, Res
 
     Returns
     -------
-    HTMLResponse
-        An HTML response containing the rendered template, with the Git URL
-        and other default parameters such as loading state and file size.
+    HTMLResponse or Response
+        An HTML response for browsers or a plain text response for API clients.
     """
 
     # Check if the request is from a browser based on User-Agent
     wants_html = is_browser(request)
     
     if not wants_html:
+        # Extract query parameters with defaults
+        query_params = request.query_params
+        max_size = int(query_params.get("max_size", "243"))
+        pattern_type = query_params.get("pattern_type", "exclude")
+        pattern = query_params.get("pattern", "")
+        
         return await process_query(
             request,
             full_path,  # Use the path as the input text
-            243,  # Default slider position
-            "exclude",  # Default pattern type
-            "",  # Default pattern
+            max_size,   # Use provided max_size or default
+            pattern_type,  # Use provided pattern_type or default
+            pattern,    # Use provided pattern or default
             is_index=False,
         )
     else:

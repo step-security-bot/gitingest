@@ -17,7 +17,7 @@ from slowapi.util import get_remote_address
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from gitingest.config import TMP_BASE_PATH
-from server.server_config import DELETE_REPO_AFTER, DB_CONFIG
+from server.server_config import DELETE_REPO_AFTER
 
 # Initialize a rate limiter
 limiter = Limiter(key_func=get_remote_address)
@@ -51,102 +51,6 @@ async def rate_limit_exception_handler(request: Request, exc: Exception) -> Resp
     raise exc
 
 
-# Database connection function
-def get_db_connection():
-    """
-    Get a connection to the PostgreSQL database.
-    
-    Returns
-    -------
-    connection
-        A psycopg2 connection object.
-    """
-    return psycopg2.connect(**DB_CONFIG)
-
-# Initialize database
-def init_db():
-    """
-    Initialize the database by creating the necessary tables if they don't exist.
-    """
-    try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute("""
-        CREATE TABLE IF NOT EXISTS api_logs (
-            id SERIAL PRIMARY KEY,
-            timestamp TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-            level VARCHAR(10),
-            message TEXT,
-            method VARCHAR(10) NULL,
-            path TEXT NULL,
-            status_code INTEGER NULL,
-            ip_address VARCHAR(45) NULL,
-            processing_time FLOAT NULL
-        );
-        """)
-        conn.commit()
-        cursor.close()
-        conn.close()
-        print("Database initialized successfully")
-    except Exception as e:
-        print(f"Error initializing database: {e}")
-
-# Logging middleware
-class LoggingMiddleware(BaseHTTPMiddleware):
-    """
-    Middleware for logging FastAPI requests to PostgreSQL database.
-    """
-    async def dispatch(self, request, call_next):
-        """
-        Process the request and log information to the database.
-        
-        Parameters
-        ----------
-        request : Request
-            The incoming HTTP request.
-        call_next : Callable
-            The next middleware or route handler in the chain.
-            
-        Returns
-        -------
-        Response
-            The response from the next middleware or route handler.
-        """
-        start_time = time.time()
-        
-        # Process the request
-        response = await call_next(request)
-        
-        # Calculate processing time
-        process_time = time.time() - start_time
-        
-        # Log to database
-        try:
-            conn = get_db_connection()
-            cursor = conn.cursor()
-            
-            # Extract request information
-            method = request.method
-            path = request.url.path
-            status_code = response.status_code
-            client_host = request.client.host if request.client else None
-            
-            # Create log message similar to FastAPI's default format
-            message = f"{client_host} - \"{method} {path} HTTP/1.1\" {status_code}"
-            
-            cursor.execute(
-                "INSERT INTO api_logs (level, message, method, path, status_code, ip_address, processing_time) "
-                "VALUES (%s, %s, %s, %s, %s, %s, %s)",
-                ("INFO", message, method, path, status_code, client_host, process_time)
-            )
-            conn.commit()
-            cursor.close()
-            conn.close()
-        except Exception as e:
-            print(f"Error logging to database: {e}")
-            
-        return response
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """
@@ -162,8 +66,6 @@ async def lifespan(app: FastAPI):
     None
         Yields control back to the FastAPI application while the background task runs.
     """
-    # Initialize the database
-    init_db()
     
     # Start the repository cleanup task
     task = asyncio.create_task(_remove_old_repositories())
