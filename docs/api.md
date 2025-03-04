@@ -68,6 +68,7 @@ flowchart TD
 | `max_size` | Integer | 243 | Maximum file size to include (slider position 0-500) |
 | `pattern_type` | String | "exclude" | Type of pattern to use ("include" or "exclude") |
 | `pattern` | String | "" | Pattern string to include or exclude files (comma or space separated) |
+| `format` | String | "text" | Response format: "text" or "json" |
 
 ### Form Parameters (POST /{repository_path})
 
@@ -88,11 +89,27 @@ The API detects whether the request is from a browser or another client (like a 
 - Interactive UI elements
 
 ### Non-Browser Requests
+
+The API supports multiple response formats:
+
+#### Plain Text (default)
 - Content-Type: `text/plain`
 - Plain text response with three sections:
   1. Summary (including token estimates)
   2. Directory tree structure
   3. File contents
+
+#### JSON
+- Content-Type: `application/json`
+- JSON object with the following structure:
+  ```json
+  {
+    "summary": "Summary text with token estimates",
+    "tree": "Directory tree structure",
+    "content": "File contents",
+    "ingest_id": "Unique identifier for the digest"
+  }
+  ```
 
 ### Download Endpoint
 - Content-Type: `text/plain`
@@ -158,6 +175,16 @@ curl "https://gitingest.com/tiangolo/fastapi?max_size=300"
 ```bash
 # Combine multiple parameters
 curl "https://gitingest.com/tiangolo/fastapi?max_size=300&pattern_type=include&pattern=*.py,*.md"
+```
+
+### Response Format Examples
+
+```bash
+# Request JSON format using query parameter
+curl "https://gitingest.com/tiangolo/fastapi?format=json"
+
+# Request JSON format using Accept header
+curl -H "Accept: application/json" "https://gitingest.com/tiangolo/fastapi"
 ```
 
 ### Downloading a Digest

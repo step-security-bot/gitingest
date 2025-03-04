@@ -1,10 +1,11 @@
 """ Process a query by parsing input, cloning a repository, and generating a summary. """
 
+import json
 from functools import partial
-from typing import Union
+from typing import Dict, Union
 
 from fastapi import Request
-from fastapi.responses import PlainTextResponse
+from fastapi.responses import JSONResponse, PlainTextResponse, Response
 from starlette.templating import _TemplateResponse
 
 from gitingest.cloning import CloneConfig, clone_repo
@@ -21,7 +22,8 @@ async def process_query(
     pattern_type: str = "exclude",
     pattern: str = "",
     is_index: bool = False,
-) -> Union[_TemplateResponse, PlainTextResponse]:
+    response_format: str = "text",
+) -> Union[_TemplateResponse, PlainTextResponse, JSONResponse]:
     """
     Process a query by parsing input, cloning a repository, and generating a summary.
 
@@ -42,11 +44,13 @@ async def process_query(
         Pattern to include or exclude in the query, depending on the pattern type.
     is_index : bool
         Flag indicating whether the request is for the index page (default is False).
+    response_format : str
+        Format of the response for non-browser requests, one of "text" or "json" (default is "text").
 
     Returns
     -------
-    _TemplateResponse
-        Rendered template response containing the processed results or an error message.
+    Union[_TemplateResponse, PlainTextResponse, JSONResponse]
+        Response in the requested format containing the processed results or an error message.
 
     Raises
     ------
@@ -128,10 +132,21 @@ async def process_query(
     # Check if the request is from a browser based on User-Agent
     wants_html = is_browser(request)
     
-    # Return HTML for browsers, plaintext for other clients
+    # Return HTML for browsers, format-specific response for other clients
     if not wants_html:
-        plaintext_content = f"{summary}\n\n{tree}\n\n{content}"
-        return PlainTextResponse(content=plaintext_content)
+        if response_format == "json":
+            # JSON response
+            json_data = {
+                "summary": summary,
+                "tree": tree,
+                "content": content,
+                "ingest_id": parsed_query.id,
+            }
+            return JSONResponse(content=json_data)
+        else:
+            # Default: Plain text response
+            plaintext_content = f"{summary}\n\n{tree}\n\n{content}"
+            return PlainTextResponse(content=plaintext_content)
     else:
         context.update(
             {

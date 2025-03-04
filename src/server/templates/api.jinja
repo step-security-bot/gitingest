@@ -50,10 +50,16 @@
                             <td class="py-2 px-4 border-b border-gray-300">Type of pattern to use ("include" or "exclude")</td>
                         </tr>
                         <tr>
-                            <td class="py-2 px-4">pattern</td>
+                            <td class="py-2 px-4 border-b border-gray-300">pattern</td>
+                            <td class="py-2 px-4 border-b border-gray-300">String</td>
+                            <td class="py-2 px-4 border-b border-gray-300">""</td>
+                            <td class="py-2 px-4 border-b border-gray-300">Pattern string to include or exclude files (comma or space separated)</td>
+                        </tr>
+                        <tr>
+                            <td class="py-2 px-4">format</td>
                             <td class="py-2 px-4">String</td>
-                            <td class="py-2 px-4">""</td>
-                            <td class="py-2 px-4">Pattern string to include or exclude files (comma or space separated)</td>
+                            <td class="py-2 px-4">"text"</td>
+                            <td class="py-2 px-4">Response format: "text" or "json"</td>
                         </tr>
                     </tbody>
                 </table>
@@ -62,6 +68,21 @@
                 <div class="bg-gray-100 p-4 rounded-lg mb-6 font-mono text-sm overflow-x-auto">
                     <pre>curl "https://gitingest.com/tiangolo/fastapi?max_size=300&pattern_type=include&pattern=*.py,*.md"</pre>
                 </div>
+                
+                <h3 class="text-xl font-bold text-gray-900 mb-2">Response Formats</h3>
+                <p class="mb-4">The API supports multiple response formats:</p>
+                
+                <h4 class="text-lg font-bold text-gray-900 mb-2">Plain Text (default)</h4>
+                <div class="bg-gray-100 p-4 rounded-lg mb-4 font-mono text-sm overflow-x-auto">
+                    <pre>curl "https://gitingest.com/tiangolo/fastapi"</pre>
+                </div>
+                
+                <h4 class="text-lg font-bold text-gray-900 mb-2">JSON</h4>
+                <div class="bg-gray-100 p-4 rounded-lg mb-4 font-mono text-sm overflow-x-auto">
+                    <pre>curl "https://gitingest.com/tiangolo/fastapi?format=json"</pre>
+                    <pre>curl -H "Accept: application/json" "https://gitingest.com/tiangolo/fastapi"</pre>
+                </div>
+                
                 
                 <h3 class="text-xl font-bold text-gray-900 mb-2">GET /download/{digest_id}</h3>
                 <p class="mb-4">Download a previously generated digest file.</p>

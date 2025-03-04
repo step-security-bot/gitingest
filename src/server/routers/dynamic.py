@@ -23,6 +23,7 @@ async def catch_all(request: Request, full_path: str) -> Union[HTMLResponse, Res
     - max_size: Maximum file size (slider position 0-500)
     - pattern_type: Type of pattern ("include" or "exclude")
     - pattern: Pattern string to include or exclude
+    - format: Response format ("text" or "json")
 
     Parameters
     ----------
@@ -34,7 +35,7 @@ async def catch_all(request: Request, full_path: str) -> Union[HTMLResponse, Res
     Returns
     -------
     HTMLResponse or Response
-        An HTML response for browsers or a plain text response for API clients.
+        An HTML response for browsers or a response in the requested format for API clients.
     """
 
     # Check if the request is from a browser based on User-Agent
@@ -47,6 +48,15 @@ async def catch_all(request: Request, full_path: str) -> Union[HTMLResponse, Res
         pattern_type = query_params.get("pattern_type", "exclude")
         pattern = query_params.get("pattern", "")
         
+        # Determine format based on Accept header or format parameter
+        format_param = query_params.get("format", "text")
+        accept_header = request.headers.get("Accept", "text/plain")
+        
+        if "application/json" in accept_header or format_param == "json":
+            response_format = "json"
+        else:
+            response_format = "text"  # Default
+        
         return await process_query(
             request,
             full_path,  # Use the path as the input text
@@ -54,6 +64,7 @@ async def catch_all(request: Request, full_path: str) -> Union[HTMLResponse, Res
             pattern_type,  # Use provided pattern_type or default
             pattern,    # Use provided pattern or default
             is_index=False,
+            response_format=response_format,  # Format parameter
         )
     else:
         return templates.TemplateResponse(
