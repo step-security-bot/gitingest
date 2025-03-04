@@ -2,9 +2,11 @@
 
 import asyncio
 import math
+import psycopg2
 import shutil
 import time
 from contextlib import asynccontextmanager
+from datetime import datetime
 from pathlib import Path
 
 from fastapi import FastAPI, Request
@@ -12,9 +14,10 @@ from fastapi.responses import Response
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
+from starlette.middleware.base import BaseHTTPMiddleware
 
 from gitingest.config import TMP_BASE_PATH
-from server.server_config import DELETE_REPO_AFTER
+from server.server_config import DELETE_REPO_AFTER, DB_CONFIG
 
 # Initialize a rate limiter
 limiter = Limiter(key_func=get_remote_address)
@@ -48,21 +51,121 @@ async def rate_limit_exception_handler(request: Request, exc: Exception) -> Resp
     raise exc
 
 
+# Database connection function
+def get_db_connection():
+    """
+    Get a connection to the PostgreSQL database.
+    
+    Returns
+    -------
+    connection
+        A psycopg2 connection object.
+    """
+    return psycopg2.connect(**DB_CONFIG)
+
+# Initialize database
+def init_db():
+    """
+    Initialize the database by creating the necessary tables if they don't exist.
+    """
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS api_logs (
+            id SERIAL PRIMARY KEY,
+            timestamp TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+            level VARCHAR(10),
+            message TEXT,
+            method VARCHAR(10) NULL,
+            path TEXT NULL,
+            status_code INTEGER NULL,
+            ip_address VARCHAR(45) NULL,
+            processing_time FLOAT NULL
+        );
+        """)
+        conn.commit()
+        cursor.close()
+        conn.close()
+        print("Database initialized successfully")
+    except Exception as e:
+        print(f"Error initializing database: {e}")
+
+# Logging middleware
+class LoggingMiddleware(BaseHTTPMiddleware):
+    """
+    Middleware for logging FastAPI requests to PostgreSQL database.
+    """
+    async def dispatch(self, request, call_next):
+        """
+        Process the request and log information to the database.
+        
+        Parameters
+        ----------
+        request : Request
+            The incoming HTTP request.
+        call_next : Callable
+            The next middleware or route handler in the chain.
+            
+        Returns
+        -------
+        Response
+            The response from the next middleware or route handler.
+        """
+        start_time = time.time()
+        
+        # Process the request
+        response = await call_next(request)
+        
+        # Calculate processing time
+        process_time = time.time() - start_time
+        
+        # Log to database
+        try:
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            
+            # Extract request information
+            method = request.method
+            path = request.url.path
+            status_code = response.status_code
+            client_host = request.client.host if request.client else None
+            
+            # Create log message similar to FastAPI's default format
+            message = f"{client_host} - \"{method} {path} HTTP/1.1\" {status_code}"
+            
+            cursor.execute(
+                "INSERT INTO api_logs (level, message, method, path, status_code, ip_address, processing_time) "
+                "VALUES (%s, %s, %s, %s, %s, %s, %s)",
+                ("INFO", message, method, path, status_code, client_host, process_time)
+            )
+            conn.commit()
+            cursor.close()
+            conn.close()
+        except Exception as e:
+            print(f"Error logging to database: {e}")
+            
+        return response
+
 @asynccontextmanager
-async def lifespan(_: FastAPI):
+async def lifespan(app: FastAPI):
     """
     Lifecycle manager for handling startup and shutdown events for the FastAPI application.
 
     Parameters
     ----------
-    _ : FastAPI
-        The FastAPI application instance (unused).
+    app : FastAPI
+        The FastAPI application instance.
 
     Yields
     -------
     None
         Yields control back to the FastAPI application while the background task runs.
     """
+    # Initialize the database
+    init_db()
+    
+    # Start the repository cleanup task
     task = asyncio.create_task(_remove_old_repositories())
 
     yield
@@ -160,6 +263,27 @@ def log_slider_to_size(position: int) -> int:
     minv = math.log(1)
     maxv = math.log(102_400)
     return round(math.exp(minv + (maxv - minv) * pow(position / maxp, 1.5))) * 1024
+
+
+def is_browser(request: Request) -> bool:
+    """
+    Detect if the request is coming from a browser based on the User-Agent header.
+    
+    Parameters
+    ----------
+    request : Request
+        The incoming HTTP request.
+        
+    Returns
+    -------
+    bool
+        True if the request is from a browser, False otherwise.
+    """
+    user_agent = request.headers.get("user-agent", "").lower()
+    browser_identifiers = ["mozilla", "chrome", "safari", "edge", "firefox", "webkit", "opera"]
+    
+    # Check if any browser identifier is in the user agent string
+    return any(identifier in user_agent for identifier in browser_identifiers)
 
 
 ## Color printing utility
