@@ -2,11 +2,9 @@
 
 import asyncio
 import math
-import psycopg2
 import shutil
 import time
 from contextlib import asynccontextmanager
-from datetime import datetime
 from pathlib import Path
 
 from fastapi import FastAPI, Request
@@ -14,7 +12,6 @@ from fastapi.responses import Response
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
-from starlette.middleware.base import BaseHTTPMiddleware
 
 from gitingest.config import TMP_BASE_PATH
 from server.server_config import DELETE_REPO_AFTER
@@ -52,13 +49,13 @@ async def rate_limit_exception_handler(request: Request, exc: Exception) -> Resp
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(_: FastAPI):
     """
     Lifecycle manager for handling startup and shutdown events for the FastAPI application.
 
     Parameters
     ----------
-    app : FastAPI
+    _ : FastAPI
         The FastAPI application instance.
 
     Yields
@@ -66,7 +63,7 @@ async def lifespan(app: FastAPI):
     None
         Yields control back to the FastAPI application while the background task runs.
     """
-    
+
     # Start the repository cleanup task
     task = asyncio.create_task(_remove_old_repositories())
 
@@ -170,12 +167,12 @@ def log_slider_to_size(position: int) -> int:
 def is_browser(request: Request) -> bool:
     """
     Detect if the request is coming from a browser based on the User-Agent header.
-    
+
     Parameters
     ----------
     request : Request
         The incoming HTTP request.
-        
+
     Returns
     -------
     bool
@@ -183,7 +180,7 @@ def is_browser(request: Request) -> bool:
     """
     user_agent = request.headers.get("user-agent", "").lower()
     browser_identifiers = ["mozilla", "chrome", "safari", "edge", "firefox", "webkit", "opera"]
-    
+
     # Check if any browser identifier is in the user agent string
     return any(identifier in user_agent for identifier in browser_identifiers)
 
